@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@types/canvasjs": "^1.9.10",
+    "raf": "^3.4.1"
+  }
+}
