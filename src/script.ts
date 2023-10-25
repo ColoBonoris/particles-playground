@@ -17,7 +17,7 @@ const mousePosition: MousePosition = {
     x: null,
     y: null
 }
-const mouseRadius = 300;
+const mouseRadius = 100;
 
 // @ts-ignore
 window.addEventListener('mousemove', function(e){
@@ -31,13 +31,21 @@ ctx.fillText('A', 0, 300);
 const data = ctx.getImageData(0, 0, 100, 100);
 
 class Particle {
+    // Current position
     x: number;
     y: number;
-    size: number;
+    // Initial position
     initialX: number;
     initialY: number;
+    // Weight
     density: number;
+    // Particle size
+    size: number;
+    // Color
     color: string;
+    // initial motion direction (number bewtween -1 and 1)
+    motionX: number;
+    motionY: number;
 
     constructor(x: number, y: number) {
         this.x = x;
@@ -46,10 +54,14 @@ class Particle {
         this.initialX = this.x;
         this.initialY = this.y;
         this.density = (Math.random() * 70) + 1;
-
         // choosing between 2 colors randomly
         // this.color = (Math.random() < 0.5 ? '#DC3E26' : '#EDCD44')
         this.color = '#EDCD44';
+        // Setting initial motion direction modifiers randomly between 0 and 0.5
+        this.motionX = Math.random() * 2;
+        if(this.motionX > 1) this.motionX = -this.motionX + 1;
+        this.motionY = Math.random();
+        if(this.motionY > 1) this.motionY = -this.motionY + 1;
     }
 
     draw() {
@@ -68,7 +80,55 @@ class Particle {
         ctx.fill();
     }
 
-    update() {
+    updateFree() {
+        // Calculating distance between mouse and particle
+        let xDiff = mousePosition.x! - this.x;
+        let yDiff = mousePosition.y! - this.y;
+        let dist = Math.sqrt(xDiff ** 2 + yDiff ** 2);
+
+        // Linking with close particles
+        const closeParticles = particleArray.filter(particle => {
+            (particle.x - this.x < 50) && (particle.y - this.y < 50)
+        });
+        for (let i = 0; i < closeParticles.length; i++) {
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 0.2;
+            ctx.strokeWidth = 0.2;
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(closeParticles[i].x, closeParticles[i].y);
+            ctx.stroke();
+        }
+
+        // Calculating particle movement's direction and speed
+        let xDirection = 1;
+        let yDirection = 1; 
+        if(dist < mouseRadius) {
+            // For mouse interaction
+            let speed = (mouseRadius - dist) / mouseRadius; 
+            xDirection = (xDiff / dist) * speed * this.density;
+            yDirection = (yDiff / dist) * speed * this.density;
+        }
+
+        // Updating particle's position with modified motion direction
+        this.x -= xDirection * this.motionX;
+        this.y -= yDirection * this.motionY;
+
+        // Managing bounce
+        if(this.x < 0 || this.x > canvas.width) {
+            this.motionX = -this.motionX;
+        }
+        if(this.y < 0 || this.y > canvas.height) {
+            this.motionY = -this.motionY;
+        }
+
+        /* Bugs:
+            - particles are strady when interacting with mouse
+            - some particles stick to the mouse back and forth at high speed
+        */
+    }
+
+    updateRepelling() {
         // Calculating distance between mouse and particle
         let xDiff = mousePosition.x! - this.x;
         let yDiff = mousePosition.y! - this.y;
@@ -76,7 +136,7 @@ class Particle {
 
         // Calculating particle movement's direction and speed
         let xDirection;
-        let yDirection; 
+        let yDirection;
         if(dist < mouseRadius) {
             // For mouse interaction
             let speed = (mouseRadius - dist) / mouseRadius; 
@@ -110,16 +170,38 @@ function init(){
 
 init();
 
-function animate(){
+function repellingAnimate(){
     // @ts-ignore
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (let i = 0; i < particleArray.length; i++) {
         particleArray[i].draw();
-        particleArray[i].update();
+        particleArray[i].updateRepelling();
     }
     // connect();
     // @ts-ignore
-    requestAnimationFrame(animate);
+    requestAnimationFrame(repellingAnimate);
+}
+function animateFree(){
+    // @ts-ignore
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < particleArray.length; i++) {
+        particleArray[i].draw();
+        particleArray[i].updateFree();
+    }
+    // connect();
+    // @ts-ignore
+    requestAnimationFrame(animateFree);
 }
 
-animate()
+function animate(type: "free" | "repelling" = "free"){
+    switch(type) {
+        case "free":
+            animateFree();
+            break;
+        case "repelling":
+            repellingAnimate();
+            break;
+    }
+}
+
+animate("free")
